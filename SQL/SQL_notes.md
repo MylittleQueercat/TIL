@@ -124,6 +124,6 @@ WHERE table_name = 'jobs';
 ```
 ---
 ## 大小写规范
-SQL对大小写不敏感，但约定：
+SQL对大小写没有硬性要求，也可以遵循规范：
 - **关键字大写**：SELECT、FROM、WHERE、JOIN…
 - **表名、字段名小写**：jobs、company、status…
