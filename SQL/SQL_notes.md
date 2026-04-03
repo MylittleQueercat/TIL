@@ -117,6 +117,66 @@ AND capital <> name;
 类比Python：`capital.replace(name, '')`
 
 ---
+## 10. IN — 多值匹配
+```sql
+-- 替代多个OR
+WHERE name IN ('France', 'Germany', 'Italy')
+
+-- 等价于：
+WHERE name = 'France' OR name = 'Germany' OR name = 'Italy'
+```
+
+---
+## 11. ROUND — 四舍五入
+```sql
+ROUND(population / 1000000, 2)    -- 保留2位小数
+ROUND(gdp / population, -3)       -- 四舍五入到最近的1000
+```
+第二个参数：
+- 正数 → 小数点后几位
+- 负数 → 小数点左边（`-1`=十位，`-2`=百位，`-3`=千位）
+
+---
+## 12. LENGTH / LEFT — 字符串操作
+```sql
+LENGTH(name)       -- 字符串长度
+LEFT(name, 1)      -- 取最左边N个字符（常用于取首字母）
+```
+```sql
+-- 名字和首都长度相同
+WHERE LENGTH(name) = LENGTH(capital)
+
+-- 名字和首都首字母相同，但不是同一个词
+WHERE LEFT(name, 1) = LEFT(capital, 1)
+AND name <> capital
+```
+
+---
+## 13. ORDER BY — 排序
+```sql
+-- 单列排序
+ORDER BY yr DESC      -- 从大到小
+ORDER BY winner       -- 字母顺序（默认ASC）
+
+-- 多列排序（逗号分隔，依次生效）
+ORDER BY yr DESC, winner
+
+-- 用IN表达式控制特定值排到最后（利用IN返回0/1的特性）
+ORDER BY subject IN ('chemistry', 'physics'), subject, winner
+-- 非chemistry/physics返回0排前面，chemistry/physics返回1排后面
+```
+
+---
+## 14. OR / AND 逻辑 — XOR模式
+```sql
+-- 满足A或B，但不能同时满足（异或）
+WHERE (area > 3000000 OR population > 250000000)
+AND NOT (area > 3000000 AND population > 250000000)
+```
+类比C：`(a || b) && !(a && b)`
+
+---
+
 ## 查表结构（忘记字段名时用）
 ```sql
 SELECT column_name FROM information_schema.columns
