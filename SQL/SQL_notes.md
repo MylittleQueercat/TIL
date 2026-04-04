@@ -1,7 +1,5 @@
 # SQL 笔记
-
 ## 核心概念
-
 **SQL表 = C里的结构体数组**
 ```c
 struct Job { int id; char company[100]; char status[20]; };
@@ -28,6 +26,11 @@ WHERE status = 'applied';
 
 ⚠️ 字符串必须用**单引号** `'`，双引号 `"` 在SQL里是标识符（表名/列名），PostgreSQL会报错。
 
+⚠️ 字符串里有单引号时，用两个单引号转义：
+```sql
+WHERE winner = 'EUGENE O''NEILL'
+```
+
 ---
 ## 3. GROUP BY + COUNT — 统计
 ```sql
@@ -36,6 +39,7 @@ FROM jobs
 GROUP BY status;
 ```
 类比C：遍历数组，用map统计每个status出现次数。
+
 ---
 ## 4. JOIN / LEFT JOIN — 关联两张表
 ```sql
@@ -65,6 +69,35 @@ WHERE id IN (SELECT job_id FROM interviews);
 SELECT company, position FROM jobs
 WHERE id NOT IN (SELECT job_id FROM interviews);
 ```
+
+### 子查询用于比较（标量子查询）
+```sql
+-- 人均GDP高于英国的欧洲国家
+SELECT name FROM world
+WHERE continent = 'Europe'
+AND gdp / population > (SELECT gdp / population FROM world
+                        WHERE name = 'United Kingdom')
+```
+子查询返回单个值，可以直接用 `>` `<` `=` 比较。
+
+### ALL — 与子查询结果的所有值比较
+```sql
+-- GDP高于欧洲所有国家
+SELECT name FROM world
+WHERE gdp > ALL(SELECT gdp FROM world
+                WHERE continent = 'Europe'
+                AND gdp IS NOT NULL)  -- ⚠️ 有NULL时必须过滤，否则比较失败
+```
+
+### 子查询用于IN（动态列表）
+```sql
+-- 找出包含Argentina或Australia的洲，再列出这些洲的所有国家
+SELECT name, continent FROM world
+WHERE continent IN (SELECT continent FROM world
+                    WHERE name IN ('Argentina', 'Australia'))
+ORDER BY name
+```
+
 ---
 ## 6. INSERT / UPDATE / DELETE — 增改删
 ```sql
@@ -81,11 +114,12 @@ DELETE FROM jobs WHERE company = 'Google';
 ## 7. LIKE — 模糊匹配
 ```sql
 -- % 匹配任意字符（包括空）
-WHERE name LIKE 'Y%'    -- 以Y开头
-WHERE name LIKE '%land' -- 以land结尾
-WHERE name LIKE '%anz%' -- 包含anz
+WHERE name LIKE 'Y%'      -- 以Y开头
+WHERE name LIKE '%land'   -- 以land结尾
+WHERE name LIKE '%anz%'   -- 包含anz
+WHERE name NOT LIKE '% %' -- 不含空格
 ```
-类比C：`strstr()` / `startswith`
+类比C：`strstr()` / Python `startswith`
 
 ---
 ## 8. CONCAT — 字符串拼接
@@ -98,6 +132,12 @@ WHERE capital = CONCAT(name, ' City')
 
 -- 配合LIKE，动态生成匹配模式
 WHERE capital LIKE CONCAT('%', name, '%')
+
+-- 拼接百分号（显示百分比）
+SELECT name, CONCAT(ROUND(population / (SELECT population FROM world
+                           WHERE name = 'Germany') * 100, 0), '%')
+FROM world
+WHERE continent = 'Europe'
 ```
 类比C：`strcat()` / Python `+`
 
@@ -107,8 +147,7 @@ WHERE capital LIKE CONCAT('%', name, '%')
 -- REPLACE(原字符串, 要找的部分, 替换成什么)
 REPLACE(capital, name, '')   -- 把name从capital里删掉，''=空字符串=删除
 
--- 用途：提取扩展部分
--- Monaco-Ville → -Ville
+-- 用途：提取扩展部分（Monaco-Ville → -Ville）
 SELECT name, REPLACE(capital, name, '') AS extension
 FROM world
 WHERE capital LIKE CONCAT(name, '%')
@@ -176,7 +215,71 @@ AND NOT (area > 3000000 AND population > 250000000)
 类比C：`(a || b) && !(a && b)`
 
 ---
+## 15. 相关子查询（Correlated Subquery）
+普通子查询只执行一次；相关子查询**每行执行一次**，内层查询依赖外层当前行。
+```sql
+-- 找每个洲面积最大的国家
+SELECT continent, name, area FROM world x
+WHERE area >= ALL(SELECT area FROM world y
+                  WHERE x.continent = y.continent
+                  AND area IS NOT NULL)
+```
 
+- `x` = 外层当前行
+- `y` = 内层用来比较的所有行
+- `x.continent = y.continent` = 只和同洲的行比较
+
+类比C：
+```c
+for (int i = 0; i < n; i++) {           // x：外层每一行
+    int max_area = 0;
+    for (int j = 0; j < n; j++) {       // y：内层扫全表
+        if (x[i].continent == y[j].continent)
+            max_area = MAX(max_area, y[j].area);
+    }
+    if (x[i].area >= max_area)
+        print(x[i]);
+}
+```
+
+### 常见用法模式
+```sql
+-- 每组最大值（面积、人口等）
+WHERE col >= ALL(SELECT col FROM world y
+                 WHERE x.group = y.group
+                 AND col IS NOT NULL)
+
+-- 每组字母顺序第一
+WHERE name <= ALL(SELECT name FROM world y
+                  WHERE x.continent = y.continent)
+
+-- 整组都满足条件（所有国家人口<=2500万的洲）
+WHERE 25000000 >= ALL(SELECT population FROM world y
+                      WHERE x.continent = y.continent
+                      AND population IS NOT NULL)
+
+-- 比同组所有其他成员都大N倍
+WHERE population > ALL(SELECT population * 3 FROM world y
+                       WHERE x.continent = y.continent
+                       AND y.name <> x.name)  -- 排除自己
+```
+
+---
+## 不等于
+```sql
+<>  -- 标准写法
+!=  -- 也支持，两者等价
+```
+
+## NULL处理
+```sql
+-- NULL不能用=比较，必须用IS
+WHERE gdp IS NOT NULL
+WHERE gdp IS NULL
+```
+⚠️ `ALL` 与子查询比较时，如果子查询结果含NULL，整个比较会失败，必须在子查询里过滤NULL。
+
+---
 ## 查表结构（忘记字段名时用）
 ```sql
 SELECT column_name FROM information_schema.columns
@@ -184,6 +287,6 @@ WHERE table_name = 'jobs';
 ```
 ---
 ## 大小写规范
-SQL对大小写没有硬性要求，也可以遵循规范：
+SQL对大小写不敏感，但约定：
 - **关键字大写**：SELECT、FROM、WHERE、JOIN…
 - **表名、字段名小写**：jobs、company、status…
