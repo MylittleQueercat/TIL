@@ -265,6 +265,58 @@ WHERE population > ALL(SELECT population * 3 FROM world y
 ```
 
 ---
+## 16. 聚合函数
+```sql
+SUM(gdp)        -- 求和
+COUNT(*)        -- 计数（所有行）
+COUNT(name)     -- 计数（非NULL的行）
+AVG(population) -- 平均值
+MAX(area)       -- 最大值
+MIN(area)       -- 最小值
+```
+```sql
+-- 非洲GDP总和
+SELECT SUM(gdp) FROM world
+WHERE continent = 'Africa'
+
+-- 面积>=100万的国家数量
+SELECT COUNT(*) FROM world
+WHERE area >= 1000000
+
+-- 每个洲的国家数量
+SELECT continent, COUNT(*) FROM world
+GROUP BY continent
+```
+
+---
+## 17. DISTINCT — 去重
+```sql
+-- 每个洲只显示一次
+SELECT DISTINCT continent FROM world
+```
+类比C：用 `set` 去重。
+
+---
+## 18. HAVING — 对分组结果过滤
+```sql
+-- 总人口超过1亿的洲
+SELECT continent FROM world
+GROUP BY continent
+HAVING SUM(population) >= 100000000
+```
+
+**WHERE vs HAVING：**
+- `WHERE` → 分组**前**过滤行
+- `HAVING` → 分组**后**过滤组，可以用聚合函数
+```sql
+-- 组合使用：先过滤行，再过滤组
+SELECT continent, COUNT(*) FROM world
+WHERE population >= 10000000   -- 先筛掉人口<1000万的国家
+GROUP BY continent
+HAVING COUNT(*) >= 3           -- 再筛掉国家数<3的洲
+```
+
+---
 ## 不等于
 ```sql
 <>  -- 标准写法
